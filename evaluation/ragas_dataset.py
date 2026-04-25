@@ -1,0 +1,76 @@
+from datasets import Dataset
+
+data = {
+    "question": [
+        # OpenCV
+        "Which function in OpenCV should be used for edge detection using the Canny method?",
+        "What is the purpose of the cv2.findContours function?",
+        "How do you perform adaptive thresholding in OpenCV?",
+        "What is the difference between a Gaussian filter and a median filter?",
+        "How do you convert the color space from BGR to Gray or HSV in OpenCV?",
+        "What is the SIFT (Scale-Invariant Feature Transform) algorithm used for?",
+        "How do you perform a dilation operation on a binary image?",
+        "How do you calculate an image histogram in OpenCV?",
+        "What does the cv2.warpAffine function do?",
+        "How do you implement object tracking using the MeanShift method?",
+        # Open3D
+        "How do you load a point cloud file (e.g., .pcd or .ply) in the Open3D library?",
+        "How do you perform point cloud simplification using the Voxel Downsampling method?",
+        "What is the purpose of the ICP (Iterative Closest Point) algorithm in Open3D?",
+        "How do you calculate surface normals for points in a cloud?",
+        "How do you remove noise from a point cloud using the Statistical Outlier Removal method in Open3D?",
+        "How do you visualize a point cloud object in an interactive window?",
+        "What is RANSAC in the context of plane segmentation in Open3D?",
+        "How do you transform a point cloud using a 4x4 transformation matrix?",
+        "How do you create a triangle mesh from a point cloud using the Ball Pivoting method in Open3D?",
+        "How do you extract only the points located inside a specific Bounding Box?",
+        # PCL
+        "How does the PassThrough filter work in the PCL library?",
+        "What is the purpose of the pcl::VoxelGrid class?",
+        "How do you implement Euclidean Cluster Extraction segmentation?",
+        "What is the FPFH (Fast Point Feature Histograms) descriptor?",
+        "How do you remove outliers using RadiusOutlierRemoval?",
+        "What is the purpose of the pcl::SACSegmentation module in PCL?",
+        "How do you merge two point clouds into one in PCL (C++)?",
+        "What does the Moving Least Squares (MLS) algorithm do in PCL?",
+        "How do you define a KDTree for fast neighbor searching in PCL?",
+        "What is the purpose of the NARF (Normally Aligned Radial Feature) descriptor?",
+    ],
+    "ground_truth": [
+        # OpenCV
+        "You should use the cv2.Canny() function, which takes the input image and two thresholds (threshold1 and threshold2) for the hysteresis procedure.",
+        "The function is used to detect contours in a binary image. It returns a list of contours and their hierarchy, allowing for shape and object analysis.",
+        "The cv2.adaptiveThreshold() function is used, which allows for calculating the threshold for small regions of the image, making it effective under varying lighting conditions.",
+        "A Gaussian filter reduces noise by weighted averaging of neighboring pixels, while a median filter replaces a pixel with the median of its neighborhood, which is better for removing salt-and-pepper noise.",
+        "You should use the cv2.cvtColor(image, flag) function, where the flag is, for example, cv2.COLOR_BGR2GRAY or cv2.COLOR_BGR2HSV.",
+        "SIFT is used for detecting and describing local image features that are invariant to scale changes, rotation, and illumination changes.",
+        "The cv2.dilate() function is used, which expands the bright areas of the image (objects) at the expense of darker ones using a structural element (kernel).",
+        "The cv2.calcHist() function is used, which allows for counting the frequency of pixel values within specific ranges (bins).",
+        "It is used to perform affine transformations on an image, such as translation, rotation, or scaling, based on a 2x3 transformation matrix.",
+        "The cv2.meanShift() function should be used, which iteratively shifts a search window toward the direction of maximum probability density.",
+        # Open3D
+        "You should use the open3d.io.read_point_cloud('file_path') function, which returns a PointCloud class object.",
+        "The voxel_down_sample(voxel_size) method is used, where points located within a single voxel are replaced by their average.",
+        "ICP is used for registration (alignment) of two point clouds by minimizing the distance between corresponding points to find the spatial transformation.",
+        "You should call the estimate_normals() method, which estimates normals based on the local neighborhood of each point (e.g., using a KDTree).",
+        "The remove_statistical_outlier() function is used, which removes points that are further from their neighbors than the allowed average distance.",
+        "The open3d.visualization.draw_geometries([pcd]) function is used for this purpose.",
+        "RANSAC is an iterative method used by the segment_plane() function, which allows finding the mathematical plane model that best fits a set of points.",
+        "The transform(matrix) method should be used, where the matrix contains rotation and translation information in homogeneous coordinates.",
+        "The create_from_point_cloud_ball_pivoting() function is used, which requires previously calculated surface normals.",
+        "The crop(bounding_box) method should be used, where the bounding box is defined as an AxisAlignedBoundingBox or OrientedBoundingBox object.",
+        # PCL
+        "The PassThrough filter allows for cutting off points whose coordinates in a chosen dimension (e.g., Z-axis) are outside a specified [min, max] range.",
+        "This class is used for downsampling point clouds by creating a 3D grid and replacing all points in a voxel with their centroid.",
+        "You should create a pcl::EuclideanClusterExtraction object, define a search tree (e.g., KdTree), and set the cluster tolerance distance.",
+        "It is a local feature descriptor representing the surface geometry around a point, used for matching and registering point clouds.",
+        "This filter removes points that have fewer than a specified minimum number of neighbors within a given search radius.",
+        "It is used for fitting geometric models (planes, spheres, cylinders) to a point cloud using Sample Consensus algorithms like RANSAC.",
+        "This can be done using the += operator (e.g., cloud_a += cloud_b), which appends the points from one cloud to the end of the other.",
+        "MLS is used for smoothing point clouds and improving normal vector estimation through local surface approximation using polynomials.",
+        "The pcl::KdTreeFLANN<pcl::PointXYZ> class should be used, which enables fast K-nearest neighbor (KNN) searching.",
+        "It is a keypoint feature descriptor designed for point clouds from range sensors, taking object boundaries into account.",
+    ],
+}
+
+dataset = Dataset.from_dict(data)
