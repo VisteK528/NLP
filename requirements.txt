@@ -6,3 +6,5 @@ chromadb>=0.5.0
 langchain-chroma
 langchain-core
 langchain-ollama
+datasets
+langchain-classic
