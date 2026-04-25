@@ -1,6 +1,9 @@
 import re
 
 from langchain_chroma import Chroma
+from langchain_classic.retrievers import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama.llms import OllamaLLM
@@ -15,6 +18,32 @@ def get_library_filter(user_prompt: str) -> dict:
 
         return {"library": normalized_lib}
     return {}
+
+
+def get_library_docs_for_bm25_search(vectorstore: Chroma, batch_size: int):
+    all_documents_raw = []
+    all_metadatas_raw = []
+    offset = 0
+
+    while True:
+        batch = vectorstore.get(
+            include=["documents", "metadatas"], limit=batch_size, offset=offset
+        )
+
+        if not batch["documents"]:
+            break
+
+        all_documents_raw.extend(batch["documents"])
+        all_metadatas_raw.extend(batch["metadatas"])
+        offset += batch_size
+
+    all_docs = [
+        Document(page_content=doc, metadata=meta)
+        for doc, meta in zip(all_documents_raw, all_metadatas_raw)
+    ]
+
+    library_docs = {"opencv": [], "open3d": [], "pcl": []}
+    return all_docs, library_docs
 
 
 embeddings = OllamaEmbeddings(model="qwen3-embedding")
@@ -48,6 +77,25 @@ Answer:
 prompt = ChatPromptTemplate.from_template(template)
 chain = prompt | model
 
+all_docs, library_docs = get_library_docs_for_bm25_search(vectorstore, batch_size=5000)
+
+bm25_retrievers = {
+    "all": BM25Retriever.from_documents(all_docs),
+    "opencv": BM25Retriever.from_documents(library_docs["opencv"])
+    if library_docs["opencv"]
+    else None,
+    "open3d": BM25Retriever.from_documents(library_docs["open3d"])
+    if library_docs["open3d"]
+    else None,
+    "pcl": BM25Retriever.from_documents(library_docs["pcl"])
+    if library_docs["pcl"]
+    else None,
+}
+
+for retriever in bm25_retrievers.values():
+    if retriever:
+        retriever.k = 7
+
 while True:
     print("\n\n-------------------------------")
     question = input("Ask your question (q to quit): ")
@@ -58,13 +106,20 @@ while True:
     dynamic_filter = get_library_filter(question)
 
     if dynamic_filter:
-        retriever = vectorstore.as_retriever(
+        dense_retriever = vectorstore.as_retriever(
             search_kwargs={"k": 7, "filter": dynamic_filter}
         )
+        lib_key = dynamic_filter["library"]
+        sparse_retriever = bm25_retrievers.get(lib_key) or bm25_retrievers["all"]
     else:
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
+        dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
+        sparse_retriever = bm25_retrievers["all"]
 
-    retrieved_docs = retriever.invoke(question)
+    ensemble_retriever = EnsembleRetriever(
+        retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5]
+    )
+
+    retrieved_docs = ensemble_retriever.invoke(question)
     formatted_docs = []
     for i, doc in enumerate(retrieved_docs):
         entity = doc.metadata.get("entity_name", "Unknown Entity")
