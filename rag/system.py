@@ -45,6 +45,54 @@ def get_library_docs_for_bm25_search(vectorstore: Chroma, batch_size: int):
     library_docs = {"opencv": [], "open3d": [], "pcl": []}
     return all_docs, library_docs
 
+def retrieve_answer(question: str) -> str:
+    dynamic_filter = get_library_filter(question)
+
+    if dynamic_filter:
+        print(f"Identified library filter: {dynamic_filter['library']}")
+        dense_retriever = vectorstore.as_retriever(
+            search_kwargs={"k": 7, "filter": dynamic_filter}
+        )
+        lib_key = dynamic_filter["library"]
+        sparse_retriever = bm25_retrievers.get(lib_key) or bm25_retrievers["all"]
+    else:
+        print("No specific library identified.")
+        dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
+        sparse_retriever = bm25_retrievers["all"]
+
+    ensemble_retriever = EnsembleRetriever(
+        retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5]
+    )
+
+    retrieved_docs = ensemble_retriever.invoke(question)
+    formatted_docs = []
+    for i, doc in enumerate(retrieved_docs):
+        entity = doc.metadata.get("entity_name", "Unknown Entity")
+        signature = doc.metadata.get("signature", "N/A")
+        parameters = doc.metadata.get("parameters", "None provided.")
+        returns = doc.metadata.get("returns", "None provided.")
+
+        description = doc.page_content
+
+        doc_string = f"""--- Document {i + 1}: {entity} ---
+        Signature:
+        {signature}
+
+        Description:
+        {description}
+
+        Parameters:
+        {parameters}
+
+        Returns:
+        {returns}
+        """
+        formatted_docs.append(doc_string)
+
+    context_string = "\n".join(formatted_docs)
+
+    result = chain.invoke({"docs": context_string, "question": question})
+    return result, retrieved_docs
 
 embeddings = OllamaEmbeddings(model="qwen3-embedding")
 
@@ -53,7 +101,7 @@ vectorstore = Chroma(
     embedding_function=embeddings,
 )
 
-model = OllamaLLM(model="gemma4:e4b", temperature=0.0)
+model = OllamaLLM(model="gemma2:9b", temperature=0.0)
 
 template = """
 You are an expert OpenCV, Open3D and PCL developer and technical documenter. Your job is to answer the user's question using ONLY the provided documentation context.
@@ -95,6 +143,8 @@ for retriever in bm25_retrievers.values():
     if retriever:
         retriever.k = 7
 
+
+
 while True:
     print("\n\n-------------------------------")
     question = input("Ask your question (q to quit): ")
@@ -102,48 +152,5 @@ while True:
     if question == "q":
         break
 
-    dynamic_filter = get_library_filter(question)
-
-    if dynamic_filter:
-        dense_retriever = vectorstore.as_retriever(
-            search_kwargs={"k": 7, "filter": dynamic_filter}
-        )
-        lib_key = dynamic_filter["library"]
-        sparse_retriever = bm25_retrievers.get(lib_key) or bm25_retrievers["all"]
-    else:
-        dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
-        sparse_retriever = bm25_retrievers["all"]
-
-    ensemble_retriever = EnsembleRetriever(
-        retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5]
-    )
-
-    retrieved_docs = ensemble_retriever.invoke(question)
-    formatted_docs = []
-    for i, doc in enumerate(retrieved_docs):
-        entity = doc.metadata.get("entity_name", "Unknown Entity")
-        signature = doc.metadata.get("signature", "N/A")
-        parameters = doc.metadata.get("parameters", "None provided.")
-        returns = doc.metadata.get("returns", "None provided.")
-
-        description = doc.page_content
-
-        doc_string = f"""--- Document {i + 1}: {entity} ---
-        Signature:
-        {signature}
-
-        Description:
-        {description}
-
-        Parameters:
-        {parameters}
-
-        Returns:
-        {returns}
-        """
-        formatted_docs.append(doc_string)
-
-    context_string = "\n".join(formatted_docs)
-
-    result = chain.invoke({"docs": context_string, "question": question})
+    result, retrieved_docs = retrieve_answer(question)
     print(result)
