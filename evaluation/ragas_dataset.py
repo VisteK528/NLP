@@ -1,4 +1,13 @@
+
+from ragas import evaluate
+from ragas.metrics import Faithfulness, AnswerRelevancy, ContextPrecision
+from langchain_community.chat_models import ChatOllama
 from datasets import Dataset
+from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from google.colab import userdata 
+import os
+from NLP.rag.system import retrieve_answer
 
 data = {
     "question": [
@@ -71,6 +80,45 @@ data = {
         "The pcl::KdTreeFLANN<pcl::PointXYZ> class should be used, which enables fast K-nearest neighbor (KNN) searching.",
         "It is a keypoint feature descriptor designed for point clouds from range sensors, taking object boundaries into account.",
     ],
+    "answer": [],
+    "contexts": []
+,
 }
+os.environ["OPENAI_API_KEY"] = userdata.get('OPENAI_API_KEY')
+api_key = os.environ.get("OPENAI_API_KEY")
 
+
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-ada-002",
+    openai_api_key=api_key
+)
+
+judge_llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    openai_api_key=api_key,
+    model_kwargs={"response_format": {"type": "json_object"}}
+)
+metrics = [
+    Faithfulness(llm=judge_llm),
+    AnswerRelevancy(llm=judge_llm, embeddings=embeddings),
+    ContextPrecision(llm=judge_llm),
+]
+
+answers = []
+contexts_list = []
+
+questions = data["question"]
+for question in questions:
+    print(f"Question: {question}")
+    answer, retrieved_docs = retrieve_answer(question)
+    raw_contexts = [doc.page_content for doc in retrieved_docs]
+    print(f"Answer: {answer}")
+    print("End of answer.")
+    answers.append(answer)
+    contexts_list.append(raw_contexts)
+
+data["answer"] = answers
+data["contexts"] = contexts_list  
 dataset = Dataset.from_dict(data)
+
+results = evaluate(dataset, metrics=metrics)
