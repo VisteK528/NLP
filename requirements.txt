@@ -12,3 +12,4 @@ langchain_community
 langchain_openai
 ragas
 rank_bm25
+sentence-transformers
